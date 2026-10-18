@@ -1,0 +1,66 @@
+{
+  "elements": [
+    {
+      "type": "Label",
+      "caption": "Vorhandene RegisterVariable-Instanzen behalten. Empfangsskripte nur nach Diagnoseprüfung umstellen."
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "AlignDelayMs",
+      "caption": "Synchronisierungsverzögerung ms",
+      "minimum": 500
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "MaxGapMs",
+      "caption": "Maximaler Interpolationsabstand ms",
+      "minimum": 500
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "StaleSeconds",
+      "caption": "Zähler-Timeout s",
+      "minimum": 3
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "PowerDelta",
+      "caption": "Leistung: Änderungsgrenze W",
+      "minimum": 0
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "PowerHeartbeat",
+      "caption": "Leistung: Heartbeat s",
+      "minimum": 1
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "CounterDelta",
+      "caption": "Zählerstand: Änderungsgrenze Wh",
+      "minimum": 0
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "CounterHeartbeat",
+      "caption": "Zählerstand: Heartbeat s",
+      "minimum": 1
+    },
+    {
+      "type": "CheckBox",
+      "name": "EnableOutputs",
+      "caption": "Berechnungen aktivieren (erst nach Prüfung)"
+    },
+    {
+      "type": "CheckBox",
+      "name": "DebugRaw",
+      "caption": "Debug-Ausgaben temporär aktivieren"
+    }
+  ],
+  "actions": [
+    {
+      "type": "Label",
+      "caption": "KNX-Logik und bestehende Archive bleiben unverändert. Bridge-Beispiele unter docs/bridges/."
+    }
+  ]
+}

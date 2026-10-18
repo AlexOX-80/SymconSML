@@ -1,0 +1,13 @@
+{
+  "id": "{3CC07A44-B332-41B1-84E2-936BD6990A75}",
+  "name": "SymconSML",
+  "type": 3,
+  "vendor": "SMART Home",
+  "aliases": [
+    "SML Energie-Synchronisierung"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "SMLH"
+}
