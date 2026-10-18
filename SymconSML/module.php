@@ -10,7 +10,6 @@ class SymconSML extends IPSModule
             $this->RegisterPropertyInteger($key,$value);
         }
         $this->RegisterPropertyBoolean('EnableOutputs',false);
-        $this->RegisterPropertyBoolean('DebugRaw',false);
         foreach (['pv','grid','wp'] as $channel) {
             $this->RegisterAttributeString('samples_'.$channel,'[]');
             $this->RegisterAttributeFloat('seen_'.$channel,0.0);
@@ -41,6 +40,10 @@ class SymconSML extends IPSModule
         $this->RegisterVariableFloat('skew','Letzter PV-Netz-Empfangsversatz (s)','',30);
         $this->RegisterVariableInteger('last_sync','Letzter gemeinsamer Messzeitpunkt (Unix)','~UnixTimestamp',40);
         $this->RegisterAttributeString('last_written','{}');
+        $this->RegisterAttributeInteger('last_diagnostic',0);
+        foreach (['pv_power','grid_power','wp_power','pv_export','grid_import','grid_export','wp_total'] as $ident) {
+            $this->RegisterVariableFloat('live_'.$ident, 'Live: '.$ident, '', 5);
+        }
         $this->RegisterAttributeString('rolling','[]');
         $this->RegisterTimer('Tick',1000,'SMLH_Tick($_IPS["TARGET"]);');
     }
@@ -61,12 +64,10 @@ class SymconSML extends IPSModule
         try {
             $count = $this->ReadAttributeInteger('count_'.$channel)+1;
             $this->WriteAttributeInteger('count_'.$channel,$count);
-            $this->SetValue('rx_'.$channel,$count);
             $values = $this->Decode($channel,$binary);
             if ($values === null) {
                 $errors = $this->ReadAttributeInteger('errors_'.$channel)+1;
                 $this->WriteAttributeInteger('errors_'.$channel,$errors);
-                $this->SetValue('err_'.$channel,$errors);
                 return false;
             }
             $now = microtime(true);
@@ -74,14 +75,14 @@ class SymconSML extends IPSModule
             $samples = SMLAlignment::append($samples,$now,$values,90.0);
             $this->WriteAttributeString('samples_'.$channel,json_encode($samples));
             $this->WriteAttributeFloat('seen_'.$channel,$now);
-            $this->SetValue('ok_'.$channel,true);
             if ($this->ReadPropertyBoolean('EnableOutputs')) {
                 foreach ($values as $field=>$value) {
+                    $liveIdent = 'live_'.$field;
+                    if (@IPS_GetObjectIDByIdent($liveIdent,$this->InstanceID) !== false) {
+                        $this->SetValue($liveIdent,$value);
+                    }
                     $this->FilteredWrite($field,$value,str_contains($field,'power'));
                 }
-            }
-            if ($this->ReadPropertyBoolean('DebugRaw')) {
-                $this->SendDebug('SML '.$channel,'Fields: '.implode(',',array_keys($values)),0);
             }
             return true;
         } finally {
@@ -96,11 +97,19 @@ class SymconSML extends IPSModule
         try {
             $now=microtime(true);
             $stale=max(3,$this->ReadPropertyInteger('StaleSeconds'));
+            // Diagnostics are published at most once per minute; status changes are immediate.
+            $publishCounters = $now-$this->ReadAttributeInteger('last_diagnostic')>=60;
             foreach (['pv','grid','wp'] as $channel) {
-                $this->SetValue('ok_'.$channel,$now-$this->ReadAttributeFloat('seen_'.$channel)<=$stale);
+                $ok=$now-$this->ReadAttributeFloat('seen_'.$channel)<=$stale;
+                if ($this->GetValue('ok_'.$channel)!==$ok) $this->SetValue('ok_'.$channel,$ok);
+                if ($publishCounters) {
+                    $this->SetValue('rx_'.$channel,$this->ReadAttributeInteger('count_'.$channel));
+                    $this->SetValue('err_'.$channel,$this->ReadAttributeInteger('errors_'.$channel));
+                }
             }
+            if ($publishCounters) $this->WriteAttributeInteger('last_diagnostic',(int)$now);
             if (!$this->ReadPropertyBoolean('EnableOutputs')) {
-                $this->SetValue('aligned_valid',false);
+                if ($this->GetValue('aligned_valid')) $this->SetValue('aligned_valid',false);
                 return;
             }
             $pv=json_decode($this->ReadAttributeString('samples_pv'),true) ?: [];
@@ -124,7 +133,7 @@ class SymconSML extends IPSModule
             // Net positive = import; negative = export. PV generation positive.
             $housePower=$pvPower+$gridPower;
             $houseEnergy=$pvEnergy+$import-$export;
-            $this->SetValue('aligned_valid',true);
+            if (!$this->GetValue('aligned_valid')) $this->SetValue('aligned_valid',true);
             $this->SetValue('last_sync',(int)$target);
             $this->FilteredWrite('house_power',$housePower,true);
             $this->FilteredWrite('house_energy',$houseEnergy,false);
